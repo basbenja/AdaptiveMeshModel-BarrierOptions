@@ -39,7 +39,7 @@ def barrier_AMM(
     # We already have everything we need to compute the coarse lattice:
     A = np.zeros((2*N+1, N+1))
     for i in range(N+1):
-        
+        pass
     # Next, the coars mesh is used to compute option values at ln(H) and ln(H) + h,
     # for time intervals of length k/4
 
