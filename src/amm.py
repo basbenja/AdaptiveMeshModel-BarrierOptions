@@ -1,6 +1,6 @@
 import numpy as np
 
-from utils.amm_utils import trend, pu, pd, pm
+from utils.formulas import trend, p_u, p_d, p_m
 
 # The Adaptive Mesh Model for valuing Barrier Options
 def barrier_AMM(

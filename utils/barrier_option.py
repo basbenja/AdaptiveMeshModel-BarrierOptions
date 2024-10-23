@@ -71,19 +71,19 @@ class BarrierOption(Option):
     def payoff(self, S_T, trajectory):
         if self.type == OptionType.CALL:
             if self.barrier_type == BarrierType.UP_AND_OUT:
-                return 0 if any(trajectory > self.B) else max(S_T - self.K, 0)
+                return 0 if any(trajectory >= self.H) else max(S_T - self.K, 0)
             elif self.barrier_type == BarrierType.DOWN_AND_OUT:
-                return 0 if any(trajectory < self.B) else max(S_T - self.K, 0)
+                return 0 if any(trajectory <= self.H) else max(S_T - self.K, 0)
             elif self.barrier_type == BarrierType.UP_AND_IN:
-                return 0 if all(trajectory > self.B) else max(S_T - self.K, 0)
+                return 0 if all(trajectory >= self.H) else max(S_T - self.K, 0)
             elif self.barrier_type == BarrierType.DOWN_AND_IN:
-                return 0 if all(trajectory < self.B) else max(S_T - self.K, 0)
+                return 0 if all(trajectory <= self.H) else max(S_T - self.K, 0)
         else:
             if self.barrier_type == BarrierType.UP_AND_OUT:
-                return 0 if any(trajectory > self.B) else max(self.K - S_T, 0)
+                return 0 if any(trajectory >= self.H) else max(self.K - S_T, 0)
             elif self.barrier_type == BarrierType.DOWN_AND_OUT:
-                return 0 if any(trajectory < self.B) else max(self.K - S_T, 0)
+                return 0 if any(trajectory <= self.H) else max(self.K - S_T, 0)
             elif self.barrier_type == BarrierType.UP_AND_IN:
-                return 0 if all(trajectory > self.B) else max(self.K - S_T, 0)
+                return 0 if all(trajectory >= self.H) else max(self.K - S_T, 0)
             elif self.barrier_type == BarrierType.DOWN_AND_IN:
-                return 0 if all(trajectory < self.B) else max(self.K - S_T, 0)
+                return 0 if all(trajectory <= self.H) else max(self.K - S_T, 0)
