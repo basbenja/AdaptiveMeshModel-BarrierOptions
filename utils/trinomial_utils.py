@@ -50,7 +50,7 @@ def option_prices(p_u, p_m, p_d, r, payoff, N, k):
         for j in range(start, 3**N, step):
             x = 3**(N-i-1)
             V[j, i] = discount(
-                p_u*V[j+x, i+1] + p_m*V[j, i+1] + p_d*V[j-x, i+1], r, k
+                p_u*V[j-x, i+1] + p_m*V[j, i+1] + p_d*V[j+x, i+1], r, k
             )
     return V
 
