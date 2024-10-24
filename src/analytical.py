@@ -23,6 +23,6 @@ def analytical_down_and_out(
         float: out-and-out barrier option price.
     """
     a = black_scholes(S0, K, T, r, sigma)
-    b = (H/S0)**(2*r - sigma**2)
+    b = (H/S0)**((2*r - sigma**2)/sigma**2)
     c = black_scholes((H**2)/S0, K, T, r, sigma)
     return a - b*c
