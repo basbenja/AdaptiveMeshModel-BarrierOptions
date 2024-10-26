@@ -44,13 +44,13 @@ def option_prices(p_u, p_m, p_d, r, payoff, N, k):
     V[:, N] = payoff.flatten()
     # We fill in the tree backwards
     start = 0
-    for i in range(N-1,-1,-1):
-        step = 3**(N-i)
-        start += 3**(N-i-1)
-        for j in range(start, 3**N, step):
-            x = 3**(N-i-1)
-            V[j, i] = discount(
-                p_u*V[j-x, i+1] + p_m*V[j, i+1] + p_d*V[j+x, i+1], r, k
+    for col in range(N-1,-1,-1):
+        step = 3**(N-col)
+        start += 3**(N-col-1)
+        for row in range(start, 3**N, step):
+            x = 3**(N-col-1)
+            V[row, col] = discount(
+                p_u*V[row-x, col+1] + p_m*V[row, col+1] + p_d*V[row+x, col+1], r, k
             )
     return V
 
