@@ -6,16 +6,16 @@ def trend(r, sigma):
     return r - (sigma**2)/2
 
 def p_u(h, k, sigma, alpha):
-    a = (sigma**2 * (k/(h**2))) / 2
-    b = alpha**2 * ((k**2)/(h**2))
+    a = sigma**2 * (k/(h**2))
+    b = (alpha * (k/h))**2
     c = alpha * (k/h)
-    return a + b + c
+    return (a + b + c) / 2
 
 def p_d(h, k, sigma, alpha):
-    a = (sigma**2 * (k/(h**2))) / 2
-    b = alpha**2 * ((k**2)/(h**2))
+    a = sigma**2 * (k/(h**2))
+    b = (alpha * (k/h))**2
     c = alpha * (k/h)
-    return a + b - c
+    return (a + b - c) / 2
 
 def p_m(h, k, sigma, alpha):
     return 1 - p_u(h, k, sigma, alpha) - p_d(h, k, sigma, alpha)
