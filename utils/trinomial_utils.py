@@ -16,7 +16,7 @@ def asset_price_tree(S0: float, N: int, h: float):
     # Fill in the lattice column by column
     for col in range(1, N+1):
         for row in range(N-col, (N+col)+1):
-            value = S0 + h * (N - row)
+            value = S0 + h * (N-row)
             asset[row, col] = value
     return asset
 
@@ -57,3 +57,15 @@ def option_prices(p_u, p_m, p_d, r, payoff, N, k):
 
 def discount(value, r, k=1):
     return np.exp(-r*k) * value
+
+
+def loop_time_steps(method, option, S0, T, r, sigma, max_N):
+    N_values = range(1, max_N)
+    prices = []
+    for N in N_values:
+        _, option_prices = method(option, S0, T, r, sigma, N)
+        option_price = option_prices[:,0][~np.isnan(option_prices[:,0])][0]
+        prices.append(option_price)
+        if N % 10 == 0:
+            print(f"N: {N}, Option price: {option_price}")
+    return prices
