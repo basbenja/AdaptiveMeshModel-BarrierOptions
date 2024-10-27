@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 import sys
 
 from src.analytical import analytical_down_and_out
-from src.trinomial_model import full_trinomial_model, condensed_trinomial_model
+from src.trinomial_model import trinomial_model
 
 from utils.barrier_option import *
-from utils.trinomial_utils import loop_time_steps
+from utils.utils import loop_time_steps
 
 from tabulate import tabulate
 
@@ -32,30 +32,25 @@ def main(args):
     )
 
     method = args.method
-    loop = args.loop
-    N = args.N
-    if method == "trinomial":
-        print("Using regular trinomial model with all trajectories")
-        if not loop:
-            log_asset, option_prices = full_trinomial_model(option, S0, T, r, sigma, N)
-            print(f"N = {N}")
-            print(f"Log asset prices:\n {tabulate(log_asset, tablefmt='fancy_grid')}\n\n")
-            print(f"Option prices:\n {tabulate(option_prices, tablefmt='fancy_grid')}\n\n")
-        else:
-            prices = loop_time_steps(full_trinomial_model, option, S0, T, r, sigma, N)
-            plt.plot(range(1, N), prices)
+    use_condensed = (args.method == "condensed")
+    if method == "trinomial" or method == "condensed":
+        method_str = "Regular Trinomial" if method == "trinomial" else "Condensed Trinomial"
+        print(f"Using {method_str} Model")
+        if args.loop:
+            prices = loop_time_steps(option, S0, T, r, sigma, args.N, use_condensed)
+            plt.plot(range(1, args.N), prices)
+            plt.axhline(y=min(prices), color='r', linestyle='--')
+            plt.xlabel("Number of Time Steps $N$")
+            plt.ylabel("Option Price")
+            plt.grid()
             plt.show()
-
-    elif method == "condensed":
-        print("Using condensed trinomial model")
-        if not loop:
-            log_asset, option_prices = condensed_trinomial_model(option, S0, T, r, sigma, N)
-            print(f"Log asset prices:\n{tabulate(log_asset, tablefmt='fancy_grid')}\n\n")
-            print(f"Option prices:\n{tabulate(option_prices, tablefmt='fancy_grid')}\n\n")
         else:
-            prices = loop_time_steps(condensed_trinomial_model, option, S0, T, r, sigma, N)
-            plt.plot(range(1, N), prices)
-            plt.show()
+            log_S, V, option_price = trinomial_model(
+                option, S0, T, r, sigma, args.N, use_condensed
+            )
+            print(f"Log asset prices:\n{tabulate(log_S, tablefmt='fancy_grid')}\n\n")
+            print(f"Option prices:\n{tabulate(V, tablefmt='fancy_grid')}\n\n")
+            print(F"Option price: {option_price}")
 
     elif method == "analytical":
         print("Using analytical formula")

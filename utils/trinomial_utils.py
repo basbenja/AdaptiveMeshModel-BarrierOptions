@@ -38,10 +38,21 @@ def get_all_trajectories(S0: float, N: int, h: float):
     return asset
 
 
-def option_prices(p_u, p_m, p_d, r, payoff, N, k):
+def discount(value, r, k=1):
+    return value * np.exp(-r*k)
+
+def option_prices(N, log_S, K, H, pu, pm, pd, r, k):
+    log_H = np.log(H)
     V = np.full((3**N, N+1), np.nan)
     # Option price at maturity is the payoff
-    V[:, N] = payoff.flatten()
+    for row in range(3**N):
+        log_trajectory = log_S[row, :]
+        log_asset_price  = log_trajectory[N]
+        asset_price = np.exp(log_asset_price)
+        if any(log_trajectory <= log_H):
+            V[row, N] = 0
+        else:
+            V[row, N] = max(asset_price - K, 0)
     # We fill in the tree backwards
     start = 0
     for col in range(N-1,-1,-1):
@@ -50,22 +61,34 @@ def option_prices(p_u, p_m, p_d, r, payoff, N, k):
         for row in range(start, 3**N, step):
             x = 3**(N-col-1)
             V[row, col] = discount(
-                p_u*V[row-x, col+1] + p_m*V[row, col+1] + p_d*V[row+x, col+1], r, k
+                pu * V[row-x, col+1] +
+                pm * V[row  , col+1] +
+                pd * V[row+x, col+1],
+                r, k
             )
     return V
 
+def condensed_option_prices(N, log_S, K, H, pu, pm, pd, r, k):
+    log_H = np.log(H)
+    V = np.full((2*N+1, N+1), np.nan)
+    for row in range(2*N+1):
+        log_asset_price = log_S[row, N]
+        asset_price = np.exp(log_asset_price)
+        if log_asset_price <= log_H:
+            V[row, N] = 0
+        else:
+            V[row, N] = max(asset_price - K, 0)
+    for col in range(N-1, -1, -1):
+        for row in range(N-col, N+col+1):
+            log_asset_price = log_S[row, col]
+            if log_asset_price <= log_H:
+                V[row, col] = 0
+            else:
+                V[row, col] = discount(
+                    pu * V[row-1, col+1] +
+                    pm * V[row  , col+1] +
+                    pd * V[row+1, col+1],
+                    r, k
+                )
+    return V
 
-def discount(value, r, k=1):
-    return np.exp(-r*k) * value
-
-
-def loop_time_steps(method, option, S0, T, r, sigma, max_N):
-    N_values = range(1, max_N)
-    prices = []
-    for N in N_values:
-        _, option_prices = method(option, S0, T, r, sigma, N)
-        option_price = option_prices[:,0][~np.isnan(option_prices[:,0])][0]
-        prices.append(option_price)
-        if N % 10 == 0:
-            print(f"N: {N}, Option price: {option_price}")
-    return prices
