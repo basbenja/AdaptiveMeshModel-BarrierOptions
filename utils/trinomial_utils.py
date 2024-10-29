@@ -13,7 +13,6 @@ def asset_price_tree(S0: float, N: int, h: float):
     """
     asset = np.zeros((2*N+1, N+1))
     asset[N, 0] = S0
-    # Fill in the lattice column by column
     for col in range(1, N+1):
         for row in range(N-col, (N+col)+1):
             value = S0 + h * (N-row)

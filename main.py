@@ -1,88 +1,103 @@
 import argparse
-import json
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
+import time
+from colorama import Style, Fore
+from tabulate import tabulate
 
 from src.analytical import analytical_down_and_out
 from src.trinomial_model import trinomial_model
+from src.amm import barrier_AMM
+from utils.barrier_option import BarrierOption, PositionType, BarrierType
+from utils.utils import *
 
-from utils.barrier_option import *
-from utils.utils import loop_time_steps
-
-from tabulate import tabulate
-
-def main(args):
-    with open("config.json", "r") as f:
-        params = json.load(f)
-
-    option_type = params['option_type']
-    barrier_type = params['barrier_type']
-    position = params['position']
-    S0 = params['S0']
-    K = params['K']
-    T = params['T']
-    r = params['r']
-    sigma = params['sigma']
-    H = params['H']
-
-    option = BarrierOption(
-        type=option_type, K=K, T=T, position=PositionType.LONG,
-        barrier_type=BarrierType.DOWN_AND_OUT, H=H
+def trinomial_pricing(option, params, args):
+    method_str = "Regular Trinomial" if args.method == "trinomial" else "Condensed Trinomial"
+    print(
+        f"Using {Style.BRIGHT + Fore.RED + method_str + Style.RESET_ALL} Model "
+        f"with N = {args.N}:"
     )
 
-    method = args.method
-    use_condensed = (args.method == "condensed")
-    if method == "trinomial" or method == "condensed":
-        method_str = "Regular Trinomial" if method == "trinomial" else "Condensed Trinomial"
-        print(f"Using {method_str} Model")
-        if args.loop:
-            prices = loop_time_steps(option, S0, T, r, sigma, args.N, use_condensed)
-            plt.plot(range(1, args.N), prices)
-            plt.axhline(y=min(prices), color='r', linestyle='--')
-            plt.xlabel("Number of Time Steps $N$")
-            plt.ylabel("Option Price")
-            plt.grid()
-            plt.show()
-        else:
-            log_S, V, option_price = trinomial_model(
-                option, S0, T, r, sigma, args.N, use_condensed
-            )
-            print(f"Log asset prices:\n{tabulate(log_S, tablefmt='fancy_grid')}\n\n")
-            print(f"Option prices:\n{tabulate(V, tablefmt='fancy_grid')}\n\n")
-            print(F"Option price: {option_price}")
+    if args.loop:
+        start_time = time.time()
+        prices = loop_time_steps(
+            option, params['S0'], params['T'], params['r'], params['sigma'], args.N,
+            args.method == "condensed"
+        )
+        end_time = time.time()
+        plot_N_vs_prices(prices, args.N)
+    else:
+        start_time = time.time()
+        log_S, V, option_price = trinomial_model(
+            option, params['S0'], params['T'], params['r'], params['sigma'], args.N,
+            args.method == "condensed"
+        )
+        end_time = time.time()
+        print(f"Log asset prices:\n{tabulate(log_S, tablefmt='fancy_grid')}\n")
+        print(f"Option prices:\n{tabulate(V, tablefmt='fancy_grid')}\n")
+        print(f"  - Option price: {round(option_price, 3)}")
+    print(f"  - Execution time: {round(end_time - start_time, 3)} seconds")
 
-    elif method == "analytical":
-        print("Using analytical formula")
-        price = analytical_down_and_out(S0, K, T, r, sigma, H)
-        print(f"Analytical price: {price}")
+def adaptive_mesh_pricing(option, params, args):
+    print(
+        f"Using {Style.BRIGHT + Fore.RED}Adaptive Mesh Model{Style.RESET_ALL} "
+        f"with {args.M} levels of fine mesh:"
+    )
+    start_time = time.time()
+    option_price = barrier_AMM(
+        option, params['S0'], params['T'], params['r'], params['sigma'], args.M
+    )
+    end_time = time.time()
+    print(f"  - Option price: {round(option_price, 3)}")
+    print(f"  - Execution time: {round(end_time - start_time, 3)} seconds")
+
+def analytical_pricing(params):
+    print(f"Using {Style.BRIGHT + Fore.RED}Analytical Formula{Style.RESET_ALL}:")
+    option_price = analytical_down_and_out(
+        params['S0'], params['K'], params['T'], params['r'], params['sigma'], params['H']
+    )
+    print(f"  - Option price: {round(option_price, 3)}")
 
 
-if __name__ == "__main__":
+def main(args):
+    params = load_params()
+    display_model_info(params)
+    option = BarrierOption(
+        type=params['option_type'], K=params['K'], T=params['T'],
+        position=PositionType.LONG, barrier_type=BarrierType.DOWN_AND_OUT, H=params['H']
+    )
+
+    if args.method in ["trinomial", "condensed"]:
+        trinomial_pricing(option, params, args)
+    elif args.method == "adaptive":
+        adaptive_mesh_pricing(option, params, args)
+    elif args.method == "analytical":
+        analytical_pricing(params)
+
+def parse_args():
     parser = argparse.ArgumentParser(description="Pricing barrier options")
     parser.add_argument(
         "method",
         help="Method to use for pricing",
-        choices=["trinomial", "condensed", "analytical"],
+        choices=["trinomial", "condensed", "adaptive", "analytical"]
     )
     parser.add_argument(
-        "--loop",
-        help="Loop through different N values",
-        action="store_true"
+        "--loop", help="Loop through different N values", action="store_true"
     )
-    parser.add_argument(
-        "--N",
-        help="Number of time steps",
-        type=int
-    )
+    parser.add_argument("--N", help="Number of time steps", type=int)
+    parser.add_argument("--M", help="Number of fine-mesh levels", type=int)
 
-    # If no arguments are passed, display help and exit
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
 
     args = parser.parse_args()
-    # Check if max_N is required based on the chosen method
-    if args.method != "analytical" and args.N is None:
+    if args.method in ["trinomial", "condensed"] and args.N is None:
         parser.error("--N is required when method is not 'analytical'")
+    elif args.method == "adaptive" and args.M is None:
+        parser.error("--M is required when method is 'adaptive'")
+    return args
+
+
+if __name__ == "__main__":
+    args = parse_args()
     main(args)

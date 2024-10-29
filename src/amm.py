@@ -1,5 +1,4 @@
 import numpy as np
-np.set_printoptions(precision=2, suppress=True)
 
 from utils.barrier_option import Option
 from utils.formulas import trend, p_u, p_d, p_m
@@ -8,14 +7,8 @@ from utils.trinomial_utils import (
     asset_price_tree,
     condensed_option_prices
 )
+from utils.utils import next_multiple_of_4
 
-from tabulate import tabulate
-
-def next_multiple_of_4(n):
-    return ((n + 3) // 4) * 4
-
-
-# The Adaptive Mesh Model for valuing Barrier Options
 def barrier_AMM(
     option: Option,
     S0: float,
@@ -25,7 +18,7 @@ def barrier_AMM(
     M: int = 1
 ):
     """
-    Trinomial model for pricing European Barrier Options.
+    Adaptive Mesh Model for pricing European Barrier Options.
 
     Args:
         option (Option): option to be priced
@@ -47,28 +40,22 @@ def barrier_AMM(
     pm = p_m(h, k, sigma, alpha)
     pd = p_d(h, k, sigma, alpha)
 
-    log_S = asset_price_tree(np.log(H) + h, N, h)
+    log_S = asset_price_tree(np.log(option.H) + h, N, h)
     A = condensed_option_prices(N, log_S, option.K, option.H, pu, pm, pd, r, k)
-
-    print("Coarse-mesh lattice")
-    print(tabulate(A), end="\n\n")
 
     # 2. Iterate through the different levels of fine mesh
     for level in range(M, 0, -1):
-        new_N = 4*N + 1
+        new_N = 4*N
         new_k = k / 4
         new_h = h / 2
         last_middle_row = (N if level == M else 1)
 
-        # La cantidad de columnas va a depender de qué tan fina es la malla:
-        # mete 4 columnas por cada una de la malla anterior
-        B = np.full((3, new_N), np.nan)
-        # La primera fila coincide con la fila del medio de la malla anterior
-        for col in range(new_N):      # Recorro todas las columnas
-            # Chequeo si coincide exactamente con la malla gruesa:
+        B = np.full((3, new_N+1), np.nan)   # +1 because of the zero index
+        for col in range(new_N+1):
+            # Check if it matches exactly with the previous mesh
             if col % 4 == 0:
                 B[0, col] = A[last_middle_row, col // 4]
-            # No coincide pero se calcula a partir de la malla gruesa
+            # If it doesn't match, calculate it from values of the previous mesh
             else:
                 closest_4 = next_multiple_of_4(col)
                 relative_k = new_k * (closest_4 - col)
@@ -82,50 +69,25 @@ def barrier_AMM(
                     r, new_k
                 )
 
-        # La tercera fila está sobre la barrera
+        # The third row is on the barrier
         B[2, :] = 0
 
-        # La segunda fila está se calcula a partir de las otras dos
+        # The middle row is calculated from the other two rows
         B[1, N*4] = max((np.log(option.H) + new_h) - option.K, 0)
         pu = p_u(new_h, new_k, sigma, alpha)
         pm = p_m(new_h, new_k, sigma, alpha)
         pd = p_d(new_h, new_k, sigma, alpha)
-        for col in range(new_N - 2, -1, -1):
+        for col in range(new_N-1, -1, -1):
             B[1, col] = discount(
-                pu * B[0, col+1] +
-                pm * B[1, col+1] +
-                pd * B[2, col+1],
-                r, new_k
-            )
+                pu * B[0, col+1] + pm * B[1, col+1] + pd * B[2, col+1], r, new_k)
 
-        print(f"Level {level}")
-        print(tabulate(B), end="\n\n")
-
-        # Actualizo A con los valores de B
         A = B
-        # Actualizo el resto de los valores
-        N = new_N-1
+        N = new_N
         k = new_k
         h = new_h
 
-
-import json
-from utils.barrier_option import BarrierOption, BarrierType, PositionType
-with open("../config.json", "r") as f:
-    params = json.load(f)
-    option_type = params['option_type']
-    barrier_type = params['barrier_type']
-    position = params['position']
-    S0 = params['S0']
-    K = params['K']
-    T = params['T']
-    r = params['r']
-    sigma = params['sigma']
-    H = params['H']
-
-    option = BarrierOption(
-        type=option_type, K=K, T=T, position=PositionType.LONG,
-        barrier_type=BarrierType.DOWN_AND_OUT, H=H
-    )
-
-    barrier_AMM(option, S0, T, r, sigma, 1)
+    if M == 0:
+        option_price = A[N, 0]
+    else:
+        option_price = B[1, 0]
+    return option_price
