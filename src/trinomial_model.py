@@ -47,10 +47,12 @@ def trinomial_model(
     if use_condensed:
         log_S = asset_price_tree(np.log(S0), N, h)
         V = condensed_option_prices(N, log_S, option.K, option.H, pu, pm, pd, r, k)
+        nodes = (N + 1)**2
         option_price = V[N, 0]
     else:
         log_S = get_all_trajectories(np.log(S0), N, h)
         V = option_prices(N, log_S, option.K, option.H, pu, pm, pd, r, k)
+        nodes = np.sum(~np.isnan(V))
         option_price = V[int((3**N - 1)/2),0]
 
-    return log_S, V, option_price
+    return option_price, nodes

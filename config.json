@@ -2,7 +2,7 @@
     "option_type": "call",
     "barrier_type": "down_and_out",
     "position": "long",
-    "S0": 90.5,
+    "S0": 100,
     "K": 100,
     "T": 1,
     "r": 0.1,

@@ -10,10 +10,18 @@ from src.amm import barrier_AMM
 from utils.barrier_option import BarrierOption, PositionType, BarrierType
 from utils.utils import *
 
-def trinomial_pricing(option, params, args):
+
+def analytical_pricing(params):
+    print(f"Using {Style.BRIGHT + Fore.RED}Analytical Formula{Style.RESET_ALL}:")
+    option_price = analytical_down_and_out(
+        params['S0'], params['K'], params['T'], params['r'], params['sigma'], params['H']
+    )
+    return option_price
+
+def trinomial_pricing(option, params, args, analytical_price):
     method_str = "Regular Trinomial" if args.method == "trinomial" else "Condensed Trinomial"
     print(
-        f"Using {Style.BRIGHT + Fore.RED + method_str + Style.RESET_ALL} Model "
+        f"Using {Style.BRIGHT + Fore.RED + method_str + " Model" + Style.RESET_ALL} "
         f"with N = {args.N}:"
     )
 
@@ -24,18 +32,17 @@ def trinomial_pricing(option, params, args):
             args.method == "condensed"
         )
         end_time = time.time()
-        plot_N_vs_prices(prices, args.N)
+        plot_N_vs_prices(prices, args.N, analytical_price)
+        option_price = min(prices)
+        nodes = None
     else:
         start_time = time.time()
-        log_S, V, option_price = trinomial_model(
+        option_price, nodes = trinomial_model(
             option, params['S0'], params['T'], params['r'], params['sigma'], args.N,
             args.method == "condensed"
         )
         end_time = time.time()
-        print(f"Log asset prices:\n{tabulate(log_S, tablefmt='fancy_grid')}\n")
-        print(f"Option prices:\n{tabulate(V, tablefmt='fancy_grid')}\n")
-        print(f"  - Option price: {round(option_price, 3)}")
-    print(f"  - Execution time: {round(end_time - start_time, 3)} seconds")
+    return option_price, nodes, end_time - start_time
 
 def adaptive_mesh_pricing(option, params, args):
     print(
@@ -43,35 +50,34 @@ def adaptive_mesh_pricing(option, params, args):
         f"with {args.M} levels of fine mesh:"
     )
     start_time = time.time()
-    option_price = barrier_AMM(
+    option_price, nodes = barrier_AMM(
         option, params['S0'], params['T'], params['r'], params['sigma'], args.M
     )
     end_time = time.time()
-    print(f"  - Option price: {round(option_price, 3)}")
-    print(f"  - Execution time: {round(end_time - start_time, 3)} seconds")
-
-def analytical_pricing(params):
-    print(f"Using {Style.BRIGHT + Fore.RED}Analytical Formula{Style.RESET_ALL}:")
-    option_price = analytical_down_and_out(
-        params['S0'], params['K'], params['T'], params['r'], params['sigma'], params['H']
-    )
-    print(f"  - Option price: {round(option_price, 3)}")
+    return option_price, nodes, end_time - start_time
 
 
 def main(args):
-    params = load_params()
+    params = load_params("config.json")
+
     display_model_info(params)
     option = BarrierOption(
         type=params['option_type'], K=params['K'], T=params['T'],
         position=PositionType.LONG, barrier_type=BarrierType.DOWN_AND_OUT, H=params['H']
     )
 
+    analytical_price = analytical_pricing(params)
+    print(f"  - Analytical price: {round(analytical_price, 3)}\n")
+
     if args.method in ["trinomial", "condensed"]:
-        trinomial_pricing(option, params, args)
+        option_price, nodes, execution_time = trinomial_pricing(option, params, args, analytical_price)
     elif args.method == "adaptive":
-        adaptive_mesh_pricing(option, params, args)
-    elif args.method == "analytical":
-        analytical_pricing(params)
+        option_price, nodes, execution_time = adaptive_mesh_pricing(option, params, args)
+
+    if args.method != "analytical":
+        print(f"  - Model price: {round(option_price, 3)}")
+        print(f"  - Number of nodes computed: {nodes}")
+        print(f"  - Execution time: {round(execution_time, 5)} seconds")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Pricing barrier options")

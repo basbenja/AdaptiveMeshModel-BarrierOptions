@@ -34,18 +34,24 @@ def loop_time_steps(option, S0, T, r, sigma, max_N, use_condensed):
     N_values = range(1, max_N)
     prices = []
     for N in tqdm(N_values, desc="Processing N values"):
-        _, _, option_price = trinomial_model(option, S0, T, r, sigma, N, use_condensed)
+        option_price, _ = trinomial_model(option, S0, T, r, sigma, N, use_condensed)
         prices.append(option_price)
         if N % 10 == 0:
-            tqdm.write(f"N: {N}, Option price: {option_price}")
+            tqdm.write(f"  N: {N}, Option price: {option_price}")
     return prices
 
 
-# Plot prices for loop mode
-def plot_N_vs_prices(prices, N):
-    plt.plot(range(1, N), prices)
-    plt.axhline(y=min(prices), color='r', linestyle='--')
-    plt.xlabel("Number of Time Steps $N$")
-    plt.ylabel("Option Price")
+def plot_N_vs_prices(prices, N, analytical_price):
+    plt.plot(range(1, N), prices, label="Modelo trinomial")
+    plt.axhline(
+        y=analytical_price, color='r', linestyle='--', label="Valor analítico"
+    )
+    plt.text(
+        N-1, analytical_price, f"{round(analytical_price, 3)}", color='red',
+        ha='right', va='bottom', fontsize=10
+    )
+    plt.xlabel("Cantidad de pasos de tiempo $N$")
+    plt.ylabel("Valor de la opción")
+    plt.legend()
     plt.grid()
     plt.show()

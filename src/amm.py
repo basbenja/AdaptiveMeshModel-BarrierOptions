@@ -42,10 +42,12 @@ def barrier_AMM(
 
     log_S = asset_price_tree(np.log(option.H) + h, N, h)
     A = condensed_option_prices(N, log_S, option.K, option.H, pu, pm, pd, r, k)
+    nodes = (N + 1)**2
 
     # 2. Iterate through the different levels of fine mesh
     for level in range(M, 0, -1):
         new_N = 4*N
+        nodes += (new_N + 1)*3
         new_k = k / 4
         new_h = h / 2
         last_middle_row = (N if level == M else 1)
@@ -90,4 +92,5 @@ def barrier_AMM(
         option_price = A[N, 0]
     else:
         option_price = B[1, 0]
-    return option_price
+
+    return option_price, nodes
