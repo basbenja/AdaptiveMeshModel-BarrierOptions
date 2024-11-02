@@ -91,3 +91,5 @@ def condensed_option_prices(N, log_S, K, H, pu, pm, pd, r, k):
                 )
     return V
 
+def next_multiple_of_4(n):
+    return ((n + 3) // 4) * 4

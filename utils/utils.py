@@ -1,14 +1,12 @@
 import matplotlib.pyplot as plt
+import time
 
 from colorama import Style, Fore
 from json import load
 from tqdm import tqdm
 
 from src.trinomial_model import trinomial_model
-
-def next_multiple_of_4(n):
-    return ((n + 3) // 4) * 4
-
+from src.amm import barrier_AMM
 
 def load_params(config_file="config.json"):
     with open(config_file, "r") as f:
@@ -30,19 +28,28 @@ def display_model_info(params):
     )
 
 
-def loop_time_steps(option, S0, T, r, sigma, max_N, use_condensed):
+def loop_time_steps(option, S0, T, r, sigma, max_N, analytical_price, use_condensed):
     N_values = range(1, max_N)
     prices = []
+    time_of_closest = None
+    last_closest_diff = 999999999999999999
     for N in tqdm(N_values, desc="Processing N values"):
-        option_price, _ = trinomial_model(option, S0, T, r, sigma, N, use_condensed)
+        option_price, nodes, model_setup = trinomial_model(option, S0, T, r, sigma, N, use_condensed)
         prices.append(option_price)
         if N % 10 == 0:
             tqdm.write(f"  N: {N}, Option price: {option_price}")
-    return prices
+
+        diff = abs(option_price - analytical_price)
+        if diff < 1e-1 and diff < last_closest_diff:
+            tqdm.write(f"  Obtained price = {option_price} is close to analytical price at N = {N}. Nodes = {nodes}")
+            time_of_closest = time.time()
+            last_closest_diff = diff
+
+    return prices, time_of_closest
 
 
 def plot_N_vs_prices(prices, N, analytical_price):
-    plt.plot(range(1, N), prices, label="Modelo trinomial")
+    plt.plot(1, prices, label="Modelo trinomial")
     plt.axhline(
         y=analytical_price, color='r', linestyle='--', label="Valor analítico"
     )
@@ -55,3 +62,25 @@ def plot_N_vs_prices(prices, N, analytical_price):
     plt.legend()
     plt.grid()
     plt.show()
+
+
+def loop_mesh_levels(option, S0, T, r, sigma, min_M, max_M, analytical_price):
+    start_time = time.time()
+
+    M_values = range(min_M, max_M+1)
+    best_option_price = None
+    min_nodes = 999999999999999999
+    for M in tqdm(M_values, desc="Processing M values"):
+        option_price, nodes = barrier_AMM(option, S0, T, r, sigma, M)
+        tqdm.write(f"  M: {M}, Option price: {option_price}")
+
+        diff = abs(option_price - analytical_price)
+        if diff < 1e-2 and nodes < min_nodes:
+            time_till_the_moment = time.time() - start_time
+            tqdm.write(
+                f"  Obtained price = {option_price} is close to analytical price at M = {M}. Nodes = {nodes}"
+                f"  Time required = {time_till_the_moment}\n"
+            )
+            best_option_price = option_price
+            min_nodes = nodes
+    return best_option_price, min_nodes

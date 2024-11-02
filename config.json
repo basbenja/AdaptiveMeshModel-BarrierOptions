@@ -2,10 +2,10 @@
     "option_type": "call",
     "barrier_type": "down_and_out",
     "position": "long",
-    "S0": 100,
-    "K": 100,
+    "S0": 951,
+    "K": 1000,
     "T": 1,
-    "r": 0.1,
-    "sigma": 0.25,
-    "H": 90
+    "r": 0.05,
+    "sigma": 0.35,
+    "H": 950
 }

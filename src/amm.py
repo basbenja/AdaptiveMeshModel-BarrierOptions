@@ -5,9 +5,9 @@ from utils.formulas import trend, p_u, p_d, p_m
 from utils.trinomial_utils import discount
 from utils.trinomial_utils import (
     asset_price_tree,
-    condensed_option_prices
+    condensed_option_prices,
+    next_multiple_of_4
 )
-from utils.utils import next_multiple_of_4
 
 def barrier_AMM(
     option: Option,

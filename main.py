@@ -2,7 +2,6 @@ import argparse
 import sys
 import time
 from colorama import Style, Fore
-from tabulate import tabulate
 
 from src.analytical import analytical_down_and_out
 from src.trinomial_model import trinomial_model
@@ -25,34 +24,40 @@ def trinomial_pricing(option, params, args, analytical_price):
         f"with N = {args.N}:"
     )
 
+    start_time = time.time()
     if args.loop:
-        start_time = time.time()
-        prices = loop_time_steps(
+        prices, time_of_closest = loop_time_steps(
             option, params['S0'], params['T'], params['r'], params['sigma'], args.N,
-            args.method == "condensed"
+            analytical_price, args.method == "condensed"
         )
-        end_time = time.time()
+        end_time = time.time() if time_of_closest is None else time_of_closest
         plot_N_vs_prices(prices, args.N, analytical_price)
         option_price = min(prices)
         nodes = None
     else:
-        start_time = time.time()
-        option_price, nodes = trinomial_model(
+        option_price, nodes, _ = trinomial_model(
             option, params['S0'], params['T'], params['r'], params['sigma'], args.N,
             args.method == "condensed"
         )
         end_time = time.time()
     return option_price, nodes, end_time - start_time
 
-def adaptive_mesh_pricing(option, params, args):
+def adaptive_mesh_pricing(option, params, args, analytical_price):
     print(
         f"Using {Style.BRIGHT + Fore.RED}Adaptive Mesh Model{Style.RESET_ALL} "
         f"with {args.M} levels of fine mesh:"
     )
+
     start_time = time.time()
-    option_price, nodes = barrier_AMM(
-        option, params['S0'], params['T'], params['r'], params['sigma'], args.M
-    )
+    if args.loop:
+        option_price, nodes = loop_mesh_levels(
+            option, params['S0'], params['T'], params['r'], params['sigma'],
+            args.min_M, args.max_M, analytical_price
+        )
+    else:
+        option_price, nodes = barrier_AMM(
+            option, params['S0'], params['T'], params['r'], params['sigma'], args.M
+        )
     end_time = time.time()
     return option_price, nodes, end_time - start_time
 
@@ -70,14 +75,19 @@ def main(args):
     print(f"  - Analytical price: {round(analytical_price, 3)}\n")
 
     if args.method in ["trinomial", "condensed"]:
-        option_price, nodes, execution_time = trinomial_pricing(option, params, args, analytical_price)
+        option_price, nodes, execution_time = trinomial_pricing(
+            option, params, args, analytical_price
+        )
     elif args.method == "adaptive":
-        option_price, nodes, execution_time = adaptive_mesh_pricing(option, params, args)
+        option_price, nodes, execution_time = adaptive_mesh_pricing(
+            option, params, args, analytical_price
+        )
 
     if args.method != "analytical":
         print(f"  - Model price: {round(option_price, 3)}")
         print(f"  - Number of nodes computed: {nodes}")
         print(f"  - Execution time: {round(execution_time, 5)} seconds")
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Pricing barrier options")
@@ -91,6 +101,9 @@ def parse_args():
     )
     parser.add_argument("--N", help="Number of time steps", type=int)
     parser.add_argument("--M", help="Number of fine-mesh levels", type=int)
+    parser.add_argument("--min_M", help="Minimum number of fine-mesh levels", type=int, default=0)
+    parser.add_argument("--max_M", help="Maximum number of fine-mesh levels", type=int)
+
 
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
@@ -99,8 +112,13 @@ def parse_args():
     args = parser.parse_args()
     if args.method in ["trinomial", "condensed"] and args.N is None:
         parser.error("--N is required when method is not 'analytical'")
-    elif args.method == "adaptive" and args.M is None:
-        parser.error("--M is required when method is 'adaptive'")
+    elif args.method == "adaptive":
+        if not args.loop and args.M is None:
+            parser.error("--M is required when method is 'adaptive'")
+        elif args.method == "adaptive" and args.loop and (args.min_M is None or args.max_M is None):
+            parser.error(
+                "--min_M and --max_M are required when method is 'adaptive' and you want to loop"
+            )
     return args
 
 
