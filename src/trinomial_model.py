@@ -55,4 +55,6 @@ def trinomial_model(
         nodes = np.sum(~np.isnan(V))
         option_price = V[int((3**N - 1)/2),0]
 
-    return option_price, nodes
+    activate_barrier_steps = np.ceil((np.log(S0) - np.log(option.H)) / h)
+
+    return option_price, nodes, h, activate_barrier_steps
